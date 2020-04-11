@@ -1,0 +1,2 @@
+jenkinsapi==0.3.11
+RPi.GPIO==0.7.0
