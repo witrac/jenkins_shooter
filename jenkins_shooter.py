@@ -1,10 +1,15 @@
 import time
 import multiprocessing
 import argparse
+import logging
 
 from jenkinsapi.jenkins import Jenkins
 import jenkinsapi.api
 import RPi.GPIO as GPIO
+
+from shooter_controller import ShooterController
+
+logging.basicConfig(level=logging.DEBUG)
 
 GPIO.setmode(GPIO.BCM)
 
@@ -12,6 +17,8 @@ green_led = 4
 red_led = 17
 GPIO.setup(green_led, GPIO.OUT)
 GPIO.setup(red_led, GPIO.OUT)
+
+controller = ShooterController()
 
 jenkins_username = None
 jenkins_password = None
@@ -59,10 +66,12 @@ def red():
     GPIO.output(red_led, GPIO.HIGH)
 
 
-
 def main():
     p = multiprocessing.Process(target=blink)
     t = 30
+    # This variable controls a one-off shoot after a failure, we could
+    # implement a nicer FSM at some point
+    last_failure_user = None
     while True:
         result = get_job_details()
         print(result)
@@ -79,11 +88,17 @@ def main():
             if p.is_alive():
                 p.terminate()
             red()
+            # TODO: get the user to shoot from get_job_details()
+            last_failure_user = "bob"
             t = 30
         else:
             print("Compilando...")
 
+        if last_failure_user is not None:
+            last_failure_user = None
+            controller.shoot(last_failure_user)
         time.sleep(t)
+
     return 1
 
 def parse_args():
